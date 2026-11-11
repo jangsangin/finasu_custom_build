@@ -67,6 +67,13 @@ on:
         options:
           - FinaSU
         default: FinaSU
+      finasu_source:
+        description: "FinaSU source: latest = LyraVoid/FinaSU master tip, pinned = audited pin (follows commit_mode)"
+        type: choice
+        options:
+          - latest
+          - pinned
+        default: latest
       use_susfs:
         description: "SUSFS"
         type: boolean
@@ -329,7 +336,13 @@ jobs:
             KERNELSU_COMMIT="$(pick "$PIN_KERNELSU" https://github.com/tiann/KernelSU.git refs/heads/main)"
             BAKASU_COMMIT="$(pick "$PIN_BAKASU" https://github.com/Baka-SU/BakaSU.git refs/heads/main)"
             SUKISU_ULTRA_COMMIT="$(pick "$PIN_SUKISU_ULTRA" https://github.com/SukiSU-Ultra/SukiSU-Ultra.git refs/heads/builtin)"
-            FINASU_COMMIT="$(pick "$PIN_FINASU" https://github.com/LyraVoid/FinaSU.git refs/heads/master)"
+            # finasu_source=latest always follows the LyraVoid/FinaSU master tip;
+            # pinned follows commit_mode (verified pin, or tip when commit_mode=latest).
+            if [ "${{ inputs.finasu_source || 'latest' }}" = "latest" ]; then
+              FINASU_COMMIT="$(resolve_sha https://github.com/LyraVoid/FinaSU.git refs/heads/master)"
+            else
+              FINASU_COMMIT="$(pick "$PIN_FINASU" https://github.com/LyraVoid/FinaSU.git refs/heads/master)"
+            fi
           else
             KERNELSU_COMMIT="$(resolve_sha https://github.com/tiann/KernelSU.git refs/heads/main)"
             BAKASU_COMMIT="$(resolve_sha https://github.com/Baka-SU/BakaSU.git refs/heads/main)"

@@ -95,15 +95,18 @@ runs:
           exit 1
         fi
 
-        # ---- bundled FinaSU kernel source overlay ----------------------------
-        # This repo ships the FinaSU kernel tree in finasu-src/kernel. When it is
-        # present it replaces the cloned kernel/ directory, so the build uses the
-        # bundled (editable) source. The upstream clone above is kept only so the
-        # git-derived KSU_VERSION / tag below stay correct.
+        # ---- optional local FinaSU kernel source overlay -----------------------
+        # By default the upstream checkout above (LyraVoid/FinaSU at the resolved
+        # commit) is used as is. To build from your own modified copy instead,
+        # put it in finasu-src/kernel (see optional/finasu-src-snapshot); when
+        # finasu-src/kernel/Kbuild exists it replaces the cloned kernel/ directory.
+        # The clone is still used for the git-derived KSU_VERSION / tag below.
         if [ "$flavor" = "finasu" ] && [ -f "$GITHUB_WORKSPACE/finasu-src/kernel/Kbuild" ]; then
-          echo "[+] Using bundled FinaSU kernel source from finasu-src/kernel"
+          echo "[+] Overlaying local FinaSU kernel source from finasu-src/kernel"
           rm -rf "$directory/kernel"
           cp -a "$GITHUB_WORKSPACE/finasu-src/kernel" "$directory/kernel"
+        else
+          echo "[+] Using upstream FinaSU at $actual_commit"
         fi
 
         # ---- deterministic KSU version -------------------------------------
