@@ -1,0 +1,48 @@
+name: 'FinaSU SUSFS fixes'
+description: 'FinaSU-specific SUSFS verification, post-patch fixes and SUSFS Inline hook backend selection (ported from GKI_FinaSU-dev)'
+inputs:
+  stage:
+    description: '"verify" (before patching) or "post" (after the 50_add patch is applied)'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify FinaSU native SUSFS integration
+      if: inputs.stage == 'verify'
+      shell: bash
+      run: |
+        KERNEL_ROOT="${{ github.workspace }}/kernel" \
+          bash "${{ github.workspace }}/.github/scripts/finasu_susfs/run.sh" verify
+
+    - name: FinaSU SUSFS post-patch fixes
+      if: inputs.stage == 'post'
+      shell: bash
+      run: |
+        KERNEL_ROOT="${{ github.workspace }}/kernel" \
+          bash "${{ github.workspace }}/.github/scripts/finasu_susfs/run.sh" post
+
+    - name: Check SUSFS Inline hook points
+      id: inline
+      if: inputs.stage == 'post'
+      shell: bash
+      working-directory: ${{ github.workspace }}/kernel
+      run: |
+        # The matching 50_add patch provides direct ksu_handle_* call sites;
+        # FinaSU's own checker verifies them. If anything is missing keep the
+        # default Tracepoint backend instead of failing the build.
+        if grep -q '^config KSU_HOOK_SUSFS_INLINE' FinaSU/kernel/Kconfig 2>/dev/null \
+          && sh FinaSU/kernel/tools/check_susfs_inline.sh common; then
+          echo "use_inline=true" >> "$GITHUB_OUTPUT"
+          echo "FinaSU: SUSFS Inline hook backend selected"
+        else
+          echo "use_inline=false" >> "$GITHUB_OUTPUT"
+          echo "::warning title=SUSFS Inline fallback::inline hook call sites missing, using the Tracepoint backend"
+        fi
+
+    - name: Select SUSFS Inline hook backend
+      if: inputs.stage == 'post' && steps.inline.outputs.use_inline == 'true'
+      uses: ./.github/actions/set-kernel-config
+      with:
+        config_list: |
+          CONFIG_KSU_HOOK_SUSFS_INLINE=y

@@ -179,6 +179,12 @@ runs:
 
         PY
 
+    - name: Verify FinaSU native SUSFS integration
+      if: inputs.enabled == 'true' && inputs.root_flavor == 'finasu'
+      uses: ./.github/actions/finasu-susfs
+      with:
+        stage: verify
+
     - name: Enable SUSFS Kernel Configs
       if: inputs.enabled == 'true'
       uses: ./.github/actions/susfs-config
@@ -190,6 +196,12 @@ runs:
         version: ${{ inputs.version }}
         sublevel: ${{ inputs.sublevel }}
         os_patch_level: ${{ inputs.os_patch_level }}
+
+    - name: FinaSU SUSFS fixes (selinux new model, sus_path fallback, Inline hook)
+      if: inputs.enabled == 'true' && inputs.root_flavor == 'finasu'
+      uses: ./.github/actions/finasu-susfs
+      with:
+        stage: post
 
     # (susfs-revert-patches removed 2026-10-27: its only live step rewrote
     # `goto show_pad;`, a line SUSFS stopped emitting in ef16cbc (2026-05-10);
