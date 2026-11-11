@@ -31,8 +31,13 @@ runs:
         # The matching 50_add patch provides direct ksu_handle_* call sites;
         # FinaSU's own checker verifies them. If anything is missing keep the
         # default Tracepoint backend instead of failing the build.
+        #
+        # Kbuild executes tools/check_susfs_inline.sh directly (not via sh), so the
+        # file needs the exec bit; without it the kernel build dies with
+        # "Permission denied ... SUSFS Inline hook-site check failed".
+        chmod +x FinaSU/kernel/tools/check_susfs_inline.sh 2>/dev/null || true
         if grep -q '^config KSU_HOOK_SUSFS_INLINE' FinaSU/kernel/Kconfig 2>/dev/null \
-          && sh FinaSU/kernel/tools/check_susfs_inline.sh common; then
+          && FinaSU/kernel/tools/check_susfs_inline.sh common; then
           echo "use_inline=true" >> "$GITHUB_OUTPUT"
           echo "FinaSU: SUSFS Inline hook backend selected"
         else

@@ -68,12 +68,13 @@ on:
           - FinaSU
         default: FinaSU
       finasu_source:
-        description: "FinaSU source: latest = LyraVoid/FinaSU master tip, pinned = audited pin (follows commit_mode)"
+        description: "FinaSU source: release = latest stable GitHub release tag, latest = master tip, pinned = audited pin (follows commit_mode)"
         type: choice
         options:
+          - release
           - latest
           - pinned
-        default: latest
+        default: release
       use_susfs:
         description: "SUSFS"
         type: boolean
@@ -338,11 +339,34 @@ jobs:
             SUKISU_ULTRA_COMMIT="$(pick "$PIN_SUKISU_ULTRA" https://github.com/SukiSU-Ultra/SukiSU-Ultra.git refs/heads/builtin)"
             # finasu_source=latest always follows the LyraVoid/FinaSU master tip;
             # pinned follows commit_mode (verified pin, or tip when commit_mode=latest).
-            if [ "${{ inputs.finasu_source || 'latest' }}" = "latest" ]; then
-              FINASU_COMMIT="$(resolve_sha https://github.com/LyraVoid/FinaSU.git refs/heads/master)"
-            else
-              FINASU_COMMIT="$(pick "$PIN_FINASU" https://github.com/LyraVoid/FinaSU.git refs/heads/master)"
-            fi
+            case "${{ inputs.finasu_source || 'release' }}" in
+              release)
+                # Latest stable GitHub release -> its tag commit (the release
+                # is not necessarily the master tip, e.g. when it is cut from
+                # another branch). Falls back to the master tip if the lookup fails.
+                FINASU_TAG="$(curl -fsSL --max-time 30 --retry 3 \
+                  -H "Authorization: Bearer ${{ github.token }}" \
+                  -H "Accept: application/vnd.github+json" \
+                  https://api.github.com/repos/LyraVoid/FinaSU/releases/latest 2>/dev/null \
+                  | jq -r '.tag_name // empty' 2>/dev/null || true)"
+                FINASU_COMMIT=""
+                if [ -n "$FINASU_TAG" ]; then
+                  FINASU_COMMIT="$(retry git ls-remote https://github.com/LyraVoid/FinaSU.git \
+                    "refs/tags/${FINASU_TAG}^{}" "refs/tags/${FINASU_TAG}" | awk '/\^\{\}$/{p=$1} {a=$1} END{print (p ? p : a)}')"
+                  echo "FinaSU release ${FINASU_TAG} -> ${FINASU_COMMIT}"
+                fi
+                if ! [[ "$FINASU_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+                  echo "::warning::FinaSU release lookup failed; falling back to master tip" >&2
+                  FINASU_COMMIT="$(resolve_sha https://github.com/LyraVoid/FinaSU.git refs/heads/master)"
+                fi
+                ;;
+              latest)
+                FINASU_COMMIT="$(resolve_sha https://github.com/LyraVoid/FinaSU.git refs/heads/master)"
+                ;;
+              *)
+                FINASU_COMMIT="$(pick "$PIN_FINASU" https://github.com/LyraVoid/FinaSU.git refs/heads/master)"
+                ;;
+            esac
           else
             KERNELSU_COMMIT="$(resolve_sha https://github.com/tiann/KernelSU.git refs/heads/main)"
             BAKASU_COMMIT="$(resolve_sha https://github.com/Baka-SU/BakaSU.git refs/heads/main)"
